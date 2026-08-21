@@ -241,7 +241,6 @@ def get_bank_capital():
     cursor.execute("SELECT SUM(commission) FROM transactions WHERE status='APPROVED'")
     total_commission = cursor.fetchone()[0] or 0.0
 
-    # Calculate Mudaraba 50/50 Profit Split
     cursor.execute("SELECT SUM(balance) FROM customers WHERE status='ACTIVE' AND account_type='MUDARABA'")
     total_mudaraba_deposits = cursor.fetchone()[0] or 0.0
 
@@ -642,7 +641,6 @@ def auditor_eod():
     """
     return render_template_string(HTML_LAYOUT.replace("{% block content %}{% endblock %}", content), notifications=NOTIFICATIONS)
 
-
 # --- MAKER TRANSACTION ROUTE ---
 @app.route('/transaction', methods=['GET', 'POST'])
 def transaction():
@@ -690,7 +688,6 @@ def transaction():
             else:
                 timestamp_str = int(datetime.datetime.now().timestamp())
                 
-                # --- 4. TRANSACTION ID PREFIX LOGIC ---
                 if txn_type == 'DEPOSIT':
                     ft_ref = f"TT{datetime.datetime.now().strftime('%y%j')}{random.randint(10000, 99999)}"
                 elif txn_type == 'WITHDRAWAL':
@@ -738,7 +735,6 @@ def transaction():
                 </datalist>
             </div>
 
-            <!-- 5. VERIFICATION BOX FOR MAKER ANTI-FRAUD -->
             <div id="verification_box" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; padding:12px; border-radius:8px; margin-bottom:12px;">
                 <h4 style="font-size:11px; color:#166534; margin-bottom:6px;">🛡️ MIRKANEESSA MAAMMILAA (MAKER ANTI-FRAUD CHECK)</h4>
                 <div style="display:flex; align-items:center; gap:12px;">
@@ -862,6 +858,57 @@ def maker_receipts():
     {cards_html if cards_html else "<p style='text-align:center; padding:20px; color:#64748b; font-size:12px;'>Nagaheen galmaa'e hin jiru.</p>"}
     """
     return render_template_string(HTML_LAYOUT.replace("{% block content %}{% endblock %}", content), notifications=NOTIFICATIONS)
+
+# --- SINGLE RECEIPT VIEW FOR PRINTING ---
+@app.route('/receipt/<txn_id>')
+def receipt(txn_id):
+    if 'role' not in session:
+        return redirect('/login')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM transactions WHERE txn_id = ?", (txn_id,))
+    t = cursor.fetchone()
+    conn.close()
+
+    if not t:
+        return "Nagaheen Hin Argamne", 404
+
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Nagahee - {t['ft_reference']}</title>
+        <style>
+            body {{ font-family: sans-serif; padding: 20px; max-width: 400px; margin: 0 auto; border: 1px dashed #000; border-radius: 8px; }}
+            .header {{ text-align: center; border-bottom: 2px solid #065f46; padding-bottom: 8px; margin-bottom: 12px; }}
+            .row {{ display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }}
+            .btn-print {{ background: #065f46; color: white; border: none; padding: 10px; width: 100%; font-weight: bold; cursor: pointer; border-radius: 6px; margin-top: 16px; }}
+            @media print {{ .btn-print {{ display: none; }} body {{ border: none; }} }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h3 style="color:#065f46; margin:0;">IMANA MICROFINANCE</h3>
+            <p style="font-size:11px; margin:2px 0;">Nagahee Kaffaltii (Transaction Receipt)</p>
+        </div>
+        <div class="row"><span>FT Ref:</span><b>{t['ft_reference']}</b></div>
+        <div class="row"><span>Type:</span><b>{t['txn_type']}</b></div>
+        <div class="row"><span>Maammila:</span><b>{t['customer_name']}</b></div>
+        <div class="row"><span>Account ID:</span><b>{t['customer_id']}</b></div>
+        <div class="row"><span>Hamma Maallaqaa:</span><b>{t['amount']:,.2f} Birr</b></div>
+        <div class="row"><span>Comishina:</span><b>{t['commission']:,.2f} Birr</b></div>
+        <div class="row"><span>Status:</span><b>{t['status']}</b></div>
+        <div class="row"><span>Guyyaa:</span><b>{t['timestamp']}</b></div>
+        <div class="row"><span>Hojjataa:</span><b>{t['created_by']}</b></div>
+        
+        <div style="margin-top:20px; text-align:center; font-size:10px; color:#64748b;">
+            <p>Galatoomaa! / Thank you!</p>
+        </div>
+        <button onclick="window.print()" class="btn-print">🖨️ Maxxansi (Print)</button>
+    </body>
+    </html>
+    """
 
 # --- CEO PRIVATE VIEW: MUDARABA LIST ---
 @app.route('/ceo_mudaraba_list')
@@ -1579,7 +1626,6 @@ def statement(cust_id):
     """
     return render_template_string(HTML_LAYOUT.replace("{% block content %}{% endblock %}", content), notifications=NOTIFICATIONS)
 
-
 @app.route('/ceo_blank_form')
 def ceo_blank_form():
     if 'role' not in session or session['role'] != 'CEO':
@@ -1954,15 +2000,133 @@ def customers():
 
     content = f"""
     <div class="box">
-        <h2 style="font-size: 16px; margin-bottom: 12px; color:#1e3a8a;">👥 Listii Maammiltootaa</h2>
-        <form method="GET" style="display:flex; gap:8px; margin-bottom:12px;">
-            <input type="text" name="q" placeholder="Maqaa ykn ID barbaadi..." value="{search_query}" class="input-field">
-            <button type="submit" class="btn-submit" style="width:auto;">🔍</button>
+        <h2 style="font-size: 16px; margin-bottom: 8px; color:#065f46;">👥 Tarree Maammiltootaa</h2>
+        <form method="GET" style="display:flex; gap:8px;">
+            <input type="text" name="q" value="{search_query}" placeholder="Maqaa, ID ykn Bilbila..." class="input-field" style="font-size:12px;">
+            <button type="submit" class="btn-action btn-blue" style="padding:0 16px;">Barbaadi</button>
         </form>
     </div>
-    {cust_html if cust_html else "<p style='text-align:center; padding:20px;'>Maammilli hin argamne.</p>"}
+    {cust_html if cust_html else "<p style='text-align:center; padding:20px; color:#64748b; font-size:12px;'>Maammilli argame hin jiru.</p>"}
+    """
+    return render_template_string(HTML_LAYOUT.replace("{% block content %}{% endblock %}", content), notifications=NOTIFICATIONS)
+
+# --- MANAGE USERS ROUTE (CEO ONLY) ---
+@app.route('/manage_users', methods=['GET', 'POST'])
+def manage_users():
+    if 'role' not in session or session['role'] != 'CEO':
+        return "🚫 Shoora CEO Qofatu Hojjattoota Bulchuu Danda'a", 403
+
+    msg = None
+    if request.method == 'POST':
+        action = request.form.get('action')
+        username = request.form.get('username', '').strip()
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        if action == 'add':
+            password = request.form.get('password', '').strip()
+            role = request.form.get('role')
+            try:
+                cursor.execute("INSERT INTO users (username, password, role, status) VALUES (?, ?, ?, 'ACTIVE')", (username, password, role))
+                conn.commit()
+                msg = f"✅ Hojjataa haaraan ({username} - {role}) galmaa'eera!"
+                add_notification(f"CEO hojjataa haaraa uumeera: {username}")
+            except sqlite3.IntegrityError:
+                msg = "❌ Usernamni kun duraan galmaa'eera!"
+        elif action == 'toggle_status':
+            cursor.execute("SELECT status FROM users WHERE username = ?", (username,))
+            curr = cursor.fetchone()
+            if curr and username != 'ceo':
+                new_st = 'BLOCKED' if curr['status'] == 'ACTIVE' else 'ACTIVE'
+                cursor.execute("UPDATE users SET status = ? WHERE username = ?", (new_st, username))
+                conn.commit()
+                msg = f"⚙️ Status user '{username}' gara {new_st}-tti jijjiirameera."
+                add_notification(f"CEO status hojjataa jijjiireera: {username} -> {new_st}")
+
+        conn.close()
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT username, role, status FROM users")
+    users = cursor.fetchall()
+    conn.close()
+
+    rows_html = ""
+    for u in users:
+        st_badge = "badge-active" if u['status'] == 'ACTIVE' else "badge-danger"
+        toggle_btn = ""
+        if u['username'] != 'ceo':
+            btn_txt = "🚫 Block" if u['status'] == 'ACTIVE' else "🔓 Unblock"
+            btn_cls = "btn-red" if u['status'] == 'ACTIVE' else "btn-green"
+            toggle_btn = f"""
+            <form method="POST" style="display:inline;">
+                <input type="hidden" name="action" value="toggle_status">
+                <input type="hidden" name="username" value="{u['username']}">
+                <button type="submit" class="btn-action {btn_cls}" style="font-size:10px; padding:3px 8px;">{btn_txt}</button>
+            </form>
+            """
+
+        rows_html += f"""
+        <tr style="border-bottom:1px solid #e2e8f0; font-size:12px;">
+            <td style="padding:8px; font-weight:bold;">{u['username']}</td>
+            <td style="padding:8px;"><span class="role-badge">{u['role']}</span></td>
+            <td style="padding:8px;"><span class="badge {st_badge}">{u['status']}</span></td>
+            <td style="padding:8px;">{toggle_btn}</td>
+        </tr>
+        """
+
+    content = f"""
+    <div class="box">
+        <h2 style="font-size: 16px; color:#581c87; margin-bottom: 4px;">⚙️ Bulchiinsa Akkaawwuntii Hojjattootaa (CEO)</h2>
+        <p style="font-size: 11px; color:#64748b; margin-bottom: 14px;">Hojjattoota haaraa uumi ykn kan jiran ugguri.</p>
+        
+        {f"<p style='background:#dcfce7; color:#166534; padding:10px; border-radius:6px; font-size:12px; font-weight:bold; margin-bottom:12px;'>{msg}</p>" if msg else ""}
+
+        <form method="POST">
+            <input type="hidden" name="action" value="add">
+            <div class="form-group">
+                <label>Username Hojjataa</label>
+                <input type="text" name="username" required class="input-field">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="user_password" name="password" required class="input-field">
+                <span id="user_pwd_toggle" class="pwd-toggle" onclick="togglePasswordVisibility('user_password', 'user_pwd_toggle')">👁️</span>
+            </div>
+            <div class="form-group">
+                <label>Shoora (Role)</label>
+                <select name="role" class="input-field">
+                    <option value="MAKER">MAKER (Galmeessaa / T24 Teller)</option>
+                    <option value="MANAGER">MANAGER (Mirkaneessaa Transactions)</option>
+                    <option value="AUDITOR">AUDITOR (To'ataa Herregaa & EOD)</option>
+                    <option value="LOAN_OFFICER">LOAN_OFFICER (Mijjeessaa Liqaa Islaamaa)</option>
+                    <option value="CEO">CEO (Bulchaa Preezidantii Baankii)</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-submit" style="background:#7c3aed;">➕ Hojjataa Haaraa Uumi</button>
+        </form>
+    </div>
+
+    <h3 style="font-size:14px; margin-bottom:8px; color:#334155;">📋 Tarree Hojjattoota Baankii Jirani</h3>
+    <div class="box" style="padding:0; overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; text-align:left;">
+            <thead>
+                <tr style="background:#f8fafc; font-size:11px; color:#64748b; border-bottom:1px solid #e2e8f0;">
+                    <th style="padding:8px;">Username</th>
+                    <th style="padding:8px;">Shoora (Role)</th>
+                    <th style="padding:8px;">Status</th>
+                    <th style="padding:8px;">Tarkaanfii</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows_html}
+            </tbody>
+        </table>
+    </div>
     """
     return render_template_string(HTML_LAYOUT.replace("{% block content %}{% endblock %}", content), notifications=NOTIFICATIONS)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
