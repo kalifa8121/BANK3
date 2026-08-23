@@ -18,7 +18,7 @@ from flask import Flask, request, redirect, url_for, session, render_template_st
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.secret_key = "imana_free_interest_microfinance_secret_key"
+app.secret_key = os.environ.get("SECRET_KEY", "imana_free_interest_microfinance_secret_key")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
@@ -2520,6 +2520,5 @@ def customers():
                     <div style="font-size:12px; font-weight:bold; color:#065f46; margin-top:2px;">Bal: {r['balance']:,.2f} Birr</div>
                     <div style="margin-top:4px;">
                         <span class="badge {badge_cls}">{r['status']}</span>
-                        <span class="badge {'badge-mudaraba' if r['account_type']=='MUDARABA' else 'badge-wadia'}">{r['account_type']}</span>
-                    
+                        <span class="badge {'badge-mudaraba' if r['account_type']=='MUDARABA' else 'badge-wadia'}">{r['account_type'
 Preview truncated for large file
