@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="om" class="h-full bg-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SuperApp - Facebook, Telegram & TikTok Hybrid</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    .pulse-ring {
+      animation: pulse-border 2s infinite;
+    }
+    @keyframes pulse-border {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+  </style>
+</head>
+<body class="h-full text-slate-800 antialiased flex flex-col selection:bg-blue-500 selection:text-white">
+
+  <div id="app" class="flex flex-col h-screen overflow-hidden">
+    
+    <!-- TOP NAVIGATION BAR -->
+    <header class="bg-blue-600 text-white shadow-md z-30 shrink-0">
+      <div class="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
+        
+        <!-- Brand & Search -->
+        <div class="flex items-center gap-3">
+          <div class="bg-white text-blue-600 font-black text-2xl px-2.5 py-0.5 rounded-lg tracking-wider cursor-pointer shadow-sm" onclick="switchTab('feed')">
+            SuperApp
+          </div>
+          <div class="relative hidden sm:block">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+            <input type="text" placeholder="Barbaadi (Friends, Posts, Videos)..." class="bg-blue-700/60 text-white placeholder-blue-200 text-sm pl-9 pr-4 py-1.5 rounded-full outline-none focus:ring-2 focus:ring-white/40 w-48 lg:w-64">
+          </div>
+        </div>
+
+        <!-- VIP Prominent Banner -->
+        <div class="bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900 font-semibold text-xs md:text-sm px-3 py-1.5 rounded-full flex items-center gap-2 shadow-inner border border-amber-300">
+          <i data-lucide="crown" class="w-4 h-4 text-slate-900 shrink-0"></i>
+          <span class="truncate">
+            VIP Bitachuuf Admin: <a href="tel:0920689815" class="underline font-bold">0920689815</a> | Telegram: <a href="https://t.me/kalifaakka" target="_blank" class="underline font-bold">@kalifaakka</a>
+          </span>
+          <button onclick="showVipModal()" class="bg-slate-900 text-amber-300 text-xs px-2 py-0.5 rounded-full hover:bg-slate-800 transition">Bitadhu</button>
+        </div>
+
+        <!-- Navigation Icons & Profile Controls -->
+        <div id="navControls" class="flex items-center gap-2 sm:gap-3">
+          <!-- Auth buttons injected dynamically -->
+        </div>
+
+      </div>
+    </header>
+
+    <!-- MAIN WORKSPACE CONTAINER -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+      <aside id="leftSidebar" class="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex shrink-0">
+        
+        <!-- Quick Nav Links -->
+        <div class="p-4 border-b border-slate-100 space-y-1">
+          <button onclick="switchTab('feed')" id="nav-feed" class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-blue-600 bg-blue-50 transition">
+            <i data-lucide="home" class="w-5 h-5"></i> Feeds & Posts
+          </button>
+          <button onclick="switchTab('reels')" id="nav-reels" class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition">
+            <i data-lucide="clapperboard" class="w-5 h-5 text-rose-500"></i> TikTok Reels
+          </button>
+          <button onclick="switchTab('live')" id="nav-live" class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition">
+            <i data-lucide="radio" class="w-5 h-5 text-red-600"></i> Live Stream
+          </button>
+          <button onclick="switchTab('chat')" id="nav-chat" class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition">
+            <i data-lucide="send" class="w-5 h-5 text-sky-500"></i> Chat & Calls
+          </button>
+          <button onclick="switchTab('notifications')" id="nav-notifications" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition">
+            <div class="flex items-center gap-3">
+              <i data-lucide="bell" class="w-5 h-5 text-amber-500"></i> Beeksisa
+            </div>
+            <span id="notifBadge" class="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+          </button>
+          <div id="adminTabBtnContainer"></div>
+        </div>
+
+        <!-- Online/Offline Users Section -->
+        <div class="flex-1 flex flex-col overflow-hidden p-3">
+          <div class="flex items-center justify-between mb-2 px-1">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Maammiltoota (Online & Offline)</span>
+            <span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold" id="onlineCountTag">0 Online</span>
+          </div>
+          <div id="usersListContainer" class="flex-1 overflow-y-auto custom-scrollbar space-y-1">
+            <!-- Rendered users -->
+          </div>
+        </div>
+
+      </aside>
+
+      <main class="flex-1 bg-slate-100 overflow-y-auto custom-scrollbar p-3 md:p-5 relative">
+        
+        <!-- BANNER WARNING FOR SUSPENDED USERS -->
+        <div id="suspendedBanner" class="hidden mb-4 p-4 bg-rose-50 border-l-4 border-rose-500 rounded-r-xl text-rose-800">
+          <div class="flex items-center gap-3">
+            <i data-lucide="alert-triangle" class="w-6 h-6 shrink-0 text-rose-600"></i>
+            <div>
+              <h4 class="font-bold text-sm">Akkauntiin Kee Adabameera (Suspended)</h4>
+              <p id="suspendedMessage" class="text-xs mt-0.5">Qabiyyee seera ala posti gochuu keetiif sa'aatii/guyyaa murtaa'aaf adabamteetta.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 1: FEED & CREATION -->
+        <div id="tab-feed" class="max-w-2xl mx-auto space-y-5">
+          
+          <!-- Create Post Box -->
+          <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+            <div class="flex items-center gap-3 mb-3">
+              <img id="myAvatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80" class="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/20">
+              <textarea id="postTextInput" rows="2" placeholder="Maal yaadaa jirta? Video, Sagalee, fi Barreeffamama qoodadhu..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500/40 resize-none"></textarea>
+            </div>
+
+            <!-- Media attachment inputs -->
+            <div id="mediaAttachmentBox" class="hidden mb-3 p-3 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold text-slate-500">Media Attachment Link/Type:</span>
+                <button onclick="toggleMediaInput(false)" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+              </div>
+              <input type="text" id="postMediaUrl" placeholder="Image or Video URL (e.g. https://...)" class="w-full text-xs p-2 rounded-lg border border-slate-200 mb-2">
+              <div class="flex gap-2">
+                <select id="postMediaType" class="text-xs p-2 rounded-lg border border-slate-200 bg-white">
+                  <option value="image">Fakki (Image)</option>
+                  <option value="video">Short Video (TikTok)</option>
+                  <option value="audio">Sagalee (Audio Clip)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between border-t border-slate-100 pt-3">
+              <div class="flex items-center gap-1 sm:gap-2">
+                <button onclick="toggleMediaInput(true)" class="flex items-center gap-1.5 text-xs text-slate-600 hover:bg-slate-100 px-2.5 py-1.5 rounded-lg transition font-medium">
+                  <i data-lucide="image" class="w-4 h-4 text-emerald-500"></i> Video/Photo
+                </button>
+                <button onclick="startVoiceRecording()" class="flex items-center gap-1.5 text-xs text-slate-600 hover:bg-slate-100 px-2.5 py-1.5 rounded-lg transition font-medium">
+                  <i data-lucide="mic" class="w-4 h-4 text-amber-500"></i> Voice Note
+                </button>
+                <button onclick="switchTab('live')" class="flex items-center gap-1.5 text-xs text-slate-600 hover:bg-slate-100 px-2.5 py-1.5 rounded-lg transition font-medium">
+                  <i data-lucide="video" class="w-4 h-4 text-rose-500"></i> Live
+                </button>
+              </div>
+              <button onclick="submitNewPost()" class="bg-blue-600 text-white hover:bg-blue-700 text-sm font-semibold px-4 py-1.5 rounded-xl shadow-sm transition flex items-center gap-1.5">
+                <i data-lucide="send" class="w-4 h-4"></i> Post
+              </button>
+            </div>
+          </div>
+
+          <!-- PUBLIC APPROVED POSTS FEED -->
+          <div id="publicPostsFeed" class="space-y-4">
+            <!-- Approved posts populated here -->
+          </div>
+
+        </div>
+
+        <!-- TAB 2: TIKTOK SHORT REELS -->
+        <div id="tab-reels" class="hidden max-w-md mx-auto space-y-4">
+          <div class="text-center mb-2">
+            <h2 class="font-black text-xl text-slate-800 flex items-center justify-center gap-2">
+              <i data-lucide="clapperboard" class="text-rose-500"></i> TikTok Short Videos
+            </h2>
+            <p class="text-xs text-slate-500">Bashannanaa, Like & Share godhaa!</p>
+          </div>
+          <div id="reelsFeedContainer" class="space-y-6">
+            <!-- TikTok videos dynamic list -->
+          </div>
+        </div>
+
+        <!-- TAB 3: LIVE STREAM STUDIO -->
+        <div id="tab-live" class="hidden max-w-2xl mx-auto space-y-4">
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
+            <div class="relative rounded-2xl bg-slate-900 overflow-hidden aspect-video flex items-center justify-center mb-4">
+              <video id="livePreviewVideo" class="w-full h-full object-cover hidden" autoplay muted playsinline></video>
+              <div id="livePlaceholder" class="text-white flex flex-col items-center p-6">
+                <div class="w-16 h-16 rounded-full bg-rose-600/20 text-rose-500 flex items-center justify-center mb-3 pulse-ring">
+                  <i data-lucide="radio" class="w-8 h-8"></i>
+                </div>
+                <h3 class="font-bold text-lg">Maammiltootaaf "LIVE" Dhiheessi</h3>
+                <p class="text-xs text-slate-400 mt-1">Kameraa fi Maaykirrofoona kee bansiiti maammiltoota kee wajjin sagantaa kenuu eegali.</p>
+              </div>
+              <div id="liveBadge" class="hidden absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow">
+                <span class="w-2 h-2 rounded-full bg-white animate-ping"></span> LIVE NOW
+              </div>
+            </div>
+
+            <div class="flex items-center justify-center gap-3">
+              <button id="startLiveBtn" onclick="toggleLiveBroadcast()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-6 py-2.5 rounded-xl shadow transition flex items-center gap-2">
+                <i data-lucide="video" class="w-5 h-5"></i> Live Eegali
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: TELEGRAM CHAT & DIRECT CALLS -->
+        <div id="tab-chat" class="hidden max-w-4xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden h-[75vh] flex">
+          <!-- Chat sidebar list -->
+          <div class="w-1/3 border-r border-slate-200 flex flex-col">
+            <div class="p-3 border-b border-slate-100 font-bold text-sm text-slate-700 flex justify-between items-center">
+              <span>Waliin Haasa'uu (Chat)</span>
+              <i data-lucide="message-square" class="w-4 h-4 text-slate-400"></i>
+            </div>
+            <div id="chatUserList" class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+              <!-- Rendered user items for chat -->
+            </div>
+          </div>
+
+          <!-- Active Chat Window -->
+          <div id="activeChatBox" class="flex-1 flex flex-col bg-slate-50">
+            <div id="chatHeader" class="p-3 bg-white border-b border-slate-200 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div id="activeChatAvatar" class="w-9 h-9 rounded-full bg-slate-300"></div>
+                <div>
+                  <h4 id="activeChatName" class="font-bold text-sm text-slate-800">Maammila Filadhu</h4>
+                  <span id="activeChatStatus" class="text-xs text-slate-400">---</span>
+                </div>
+              </div>
+              <div id="chatCallActions" class="flex items-center gap-2 hidden">
+                <button onclick="triggerCall('voice')" class="p-2 hover:bg-slate-100 rounded-full text-slate-600" title="Audio Call">
+                  <i data-lucide="phone" class="w-5 h-5"></i>
+                </button>
+                <button onclick="triggerCall('video')" class="p-2 hover:bg-blue-50 text-blue-600 rounded-full" title="Video Call">
+                  <i data-lucide="video" class="w-5 h-5"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Messages list -->
+            <div id="messagesHistory" class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
+              <div class="text-center text-xs text-slate-400 my-10">Namni chatti eegaluuf bita irraa filadhu!</div>
+            </div>
+
+            <!-- Message Input -->
+            <div id="chatInputArea" class="p-3 bg-white border-t border-slate-200 flex items-center gap-2 hidden">
+              <input type="text" id="directMessageInput" placeholder="Ergaa barreessi..." class="flex-1 bg-slate-100 border border-slate-200 text-sm rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+              <button onclick="sendDirectMessage()" class="bg-blue-600 text-white p-2.5 rounded-xl hover:bg-blue-700 transition">
+                <i data-lucide="send" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 5: NOTIFICATIONS -->
+        <div id="tab-notifications" class="hidden max-w-xl mx-auto space-y-3">
+          <h3 class="font-bold text-slate-800 text-lg mb-2">Beeksisa fi Missed Calls</h3>
+          <div id="notificationsList" class="space-y-2">
+            <!-- Dynamic Notifications -->
+          </div>
+        </div>
+
+        <!-- TAB 6: EDIT PROFILE -->
+        <div id="tab-profile" class="hidden max-w-xl mx-auto space-y-4">
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <h3 class="font-bold text-lg text-slate-800 mb-4 border-b border-slate-100 pb-2">Profile Kee Edit Godhadhu</h3>
+            
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Maqaa Guutuu</label>
+                <input type="text" id="editFullName" class="w-full text-sm border border-slate-200 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Bio / Seneessoo</label>
+                <textarea id="editBio" rows="2" class="w-full text-sm border border-slate-200 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Fakki Profile URL</label>
+                <input type="text" id="editAvatarUrl" class="w-full text-sm border border-slate-200 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+              </div>
+
+              <div class="pt-3 flex justify-end gap-2">
+                <button onclick="switchTab('feed')" class="px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-xl">Dhiasi</button>
+                <button onclick="saveProfileChanges()" class="px-5 py-2 text-xs font-bold bg-blue-600 text-white rounded-xl shadow hover:bg-blue-700">Olkaa'i (Save)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 7: ADMIN CONTROL DASHBOARD -->
+        <div id="tab-admin" class="hidden max-w-4xl mx-auto space-y-5">
+          <div class="bg-gradient-to-r from-slate-900 to-blue-950 text-white p-5 rounded-2xl shadow-lg flex items-center justify-between">
+            <div>
+              <span class="bg-amber-400 text-slate-900 text-xs font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">Admin Control Center</span>
+              <h2 class="text-2xl font-black mt-1">To'annoo Moderaasiinii Postii fi Maammiltootaa</h2>
+              <p class="text-xs text-slate-300 mt-1">Postiin maammilaa ergame asitti approve/reject godhama. Maammilli too'atamuu isaa hin beeku.</p>
+            </div>
+            <i data-lucide="shield-check" class="w-12 h-12 text-blue-400"></i>
+          </div>
+
+          <!-- Pending Posts Moderation Queue -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                <i data-lucide="clock" class="text-amber-500"></i> Postii Mirkaneessa Eegaan (Pending Approval)
+              </h3>
+              <span id="pendingCountBadge" class="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-0.5 rounded-full">0 Pending</span>
+            </div>
+
+            <div id="pendingPostsContainer" class="space-y-4">
+              <!-- Pending items -->
+            </div>
+          </div>
+
+          <!-- User Suspension & Warning Panel -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+            <h3 class="font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3">
+              <i data-lucide="user-x" class="text-rose-500"></i> Maammiltoota Adabuu / Block Gochuu
+            </h3>
+
+            <div id="adminUserManagementList" class="space-y-3">
+              <!-- Admin user list with warning & ban controls -->
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      <aside class="w-72 bg-white border-l border-slate-200 p-4 hidden lg:flex flex-col gap-4 shrink-0 overflow-y-auto custom-scrollbar">
+        
+        <!-- User Profile Card -->
+        <div id="sidebarProfileCard" class="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center">
+          <img id="sidebarAvatar" src="" class="w-16 h-16 rounded-full mx-auto object-cover ring-4 ring-blue-500/20 mb-2">
+          <h3 id="sidebarName" class="font-bold text-slate-800 text-sm"></h3>
+          <p id="sidebarBio" class="text-xs text-slate-500 mt-0.5 line-clamp-2"></p>
+          <div id="sidebarVipTag" class="mt-2 inline-block"></div>
+          <div class="mt-3 pt-3 border-t border-slate-200 flex justify-center gap-2">
+            <button onclick="switchTab('profile')" class="text-xs font-semibold text-blue-600 hover:underline">Edit Profile</button>
+          </div>
+        </div>
+
+        <!-- Friend Requests Section -->
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+          <h4 class="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">Gaaffii Hiriyaa (Friend Requests)</h4>
+          <div id="friendRequestsBox" class="space-y-2">
+            <!-- Requests list -->
+          </div>
+        </div>
+
+        <!-- VIP Promo Ad -->
+        <div class="bg-gradient-to-br from-amber-500 to-yellow-600 rounded-2xl p-4 text-white shadow">
+          <div class="flex items-center gap-2 mb-2">
+            <i data-lucide="crown" class="w-5 h-5 text-yellow-200"></i>
+            <h4 class="font-bold text-sm">VIP Tier Bitadhaa!</h4>
+          </div>
+          <p class="text-xs text-amber-100 mb-3">Postii keessan dandeettii dorgomaa malee namoota kumaatamaan gahuuf VIP bitadhaa.</p>
+          <button onclick="showVipModal()" class="w-full bg-slate-900 text-amber-300 font-bold text-xs py-2 rounded-xl hover:bg-slate-800 transition">Contact Admin</button>
+        </div>
+
+      </aside>
+
+    </div>
+  </div>
+
+  <!-- MODAL 1: AUTHENTICATION MODAL (LOGIN/SIGNUP) -->
+  <div id="authModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+      <div class="text-center mb-6">
+        <div class="inline-block bg-blue-600 text-white font-black text-3xl px-3 py-1 rounded-2xl mb-2">SuperApp</div>
+        <h2 class="text-xl font-bold text-slate-800">Baga Nagayaan Dhuftan!</h2>
+        <p class="text-xs text-slate-500">Facebook, Telegram, fi TikTok bakka tokkotti.</p>
+      </div>
+
+      <!-- Auth Tabs -->
+      <div class="flex bg-slate-100 p-1 rounded-xl mb-4 text-xs font-bold">
+        <button id="authTabLogin" onclick="setAuthMode('login')" class="flex-1 py-2 rounded-lg bg-white shadow text-blue-600">Login</button>
+        <button id="authTabSignup" onclick="setAuthMode('signup')" class="flex-1 py-2 rounded-lg text-slate-500">Galmaa'i (Signup)</button>
+      </div>
+
+      <form onsubmit="handleAuthSubmit(event)" class="space-y-3">
+        <div id="signupFields" class="hidden space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Maqaa Guutuu</label>
+            <input type="text" id="regFullName" class="w-full text-sm border border-slate-200 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Email</label>
+            <input type="email" id="regEmail" class="w-full text-sm border border-slate-200 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Username</label>
+          <input type="text" id="authUsernameInput" required class="w-full text-sm border border-slate-200 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Password</label>
+          <input type="password" id="authPasswordInput" required class="w-full text-sm border border-slate-200 rounded-xl p-2.5 outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <button type="submit" id="authSubmitBtn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-blue-700 transition mt-2">
+          Seeni (Login)
+        </button>
+      </form>
+
+      <div class="mt-4 text-center">
+        <span class="text-xs text-slate-400">Quick Test Credentials:</span>
+        <div class="flex justify-center gap-2 mt-1">
+          <button onclick="quickLogin('kalifa')" class="text-xs bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded">User: kalifa</button>
+          <button onclick="quickLogin('admin')" class="text-xs bg-amber-100 text-amber-800 hover:bg-amber-200 px-2 py-1 rounded font-bold">Admin: admin</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: INCOMING/OUTGOING VIDEO & AUDIO CALL RINGING -->
+  <div id="callModal" class="hidden fixed inset-0 bg-slate-900/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 text-white rounded-3xl max-w-lg w-full p-6 text-center shadow-2xl relative border border-slate-700">
+      
+      <div id="callingAvatarBox" class="w-24 h-24 rounded-full bg-slate-700 mx-auto mb-4 border-4 border-blue-500 overflow-hidden pulse-ring">
+        <img id="callModalAvatar" src="" class="w-full h-full object-cover">
+      </div>
+
+      <h3 id="callModalUser" class="text-xl font-bold">Maammila...</h3>
+      <p id="callModalStatus" class="text-xs text-blue-300 mt-1 mb-6 animate-pulse">Bilbila Video Dawwaluu Jira (Ringing...)...</p>
+
+      <!-- Video Feed Grid (Simulated Call Canvas) -->
+      <div id="activeCallVideoGrid" class="hidden grid-cols-2 gap-2 mb-6 aspect-video bg-slate-950 rounded-2xl overflow-hidden p-2">
+        <div class="bg-slate-900 rounded-xl overflow-hidden relative">
+          <video id="callLocalVideo" class="w-full h-full object-cover" autoplay muted playsinline></video>
+          <span class="absolute bottom-2 left-2 bg-slate-900/70 text-[10px] px-2 py-0.5 rounded text-white">Ati</span>
+        </div>
+        <div class="bg-slate-900 rounded-xl overflow-hidden relative">
+          <img id="callRemoteAvatar" src="" class="w-full h-full object-cover">
+          <span id="callRemoteNameTag" class="absolute bottom-2 left-2 bg-slate-900/70 text-[10px] px-2 py-0.5 rounded text-white">Partner</span>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex justify-center gap-6">
+        <button id="acceptCallBtn" onclick="acceptIncomingCall()" class="hidden bg-emerald-500 hover:bg-emerald-600 text-white p-4 rounded-full shadow-lg transition">
+          <i data-lucide="phone-incoming" class="w-6 h-6"></i>
+        </button>
+        <button onclick="rejectOrEndCall()" class="bg-rose-600 hover:bg-rose-700 text-white p-4 rounded-full shadow-lg transition">
+          <i data-lucide="phone-off" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL 3: VIP SUBSCRIPTION INFORMATION -->
+  <div id="vipModal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 text-center shadow-2xl relative">
+      <button onclick="closeVipModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-3">
+        <i data-lucide="crown" class="w-8 h-8"></i>
+      </div>
+
+      <h3 class="text-xl font-black text-slate-800">VIP Membership Bitadhu</h3>
+      <p class="text-xs text-slate-500 mt-1 mb-4">Postiin keessan dorgomiidhaan ala maammiltoota hundaaf akka darbuuf VIP uummadhaa.</p>
+
+      <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-left space-y-2 mb-5">
+        <div class="flex items-center gap-2 text-xs font-bold text-amber-900">
+          <i data-lucide="phone" class="w-4 h-4 text-amber-600"></i> Lakkoofsa Bilbila Admin: <a href="tel:0920689815" class="underline text-blue-600">0920689815</a>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-bold text-amber-900">
+          <i data-lucide="send" class="w-4 h-4 text-sky-600"></i> Telegram Username: <a href="https://t.me/kalifaakka" target="_blank" class="underline text-blue-600">@kalifaakka</a>
+        </div>
+      </div>
+
+      <button onclick="closeVipModal()" class="w-full bg-slate-900 text-amber-300 font-bold py-2.5 rounded-xl">Cufi (Close)</button>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <script>
+    /* LOCAL STORAGE & SEED STATE DATABASE */
+    const DB = {
+      users: [
+        { id: '1', username: 'kalifa', full_name: 'Kalifa Akka', email: 'kalifa@app.com', password: '123', role: 'user', profile_pic: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80', bio: 'Content Creator & Developer', is_vip: true, is_suspended: false, suspended_until: null, is_online: true },
+        { id: '2', username: 'admin', full_name: 'Super Admin', email: 'admin@app.com', password: 'admin', role: 'admin', profile_pic: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80', bio: 'System Administrator', is_vip: true, is_suspended: false, suspended_until: null, is_online: true },
+        { id: '3', username: 'chala_b', full_name: 'Chaalaa Baqqalaa', email: 'chala@app.com', password: '123', role: 'user', profile_pic: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80', bio: 'TikTok Creator', is_vip: false, is_suspended: false, suspended_until: null, is_online: true },
+        { id: '4', username: 'hawwi_m', full_name: 'Haawwii Musaa', email: 'hawwi@app.com', password: '123', role: 'user', profile_pic: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80', bio: 'Singer & Artist', is_vip: false, is_suspended: false, suspended_until: null, is_online: false }
+      ],
+      posts: [
+        {
+          id: 'p1', user_id: '1', content: 'Baga gara SuperApp tiin nagaan dhuftan! Appii keenya isa haaraa kanatti fayyadamaa.', media_url: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=800&q=80', media_type: 'image', status: 'approved', likes: ['2', '3'], created_at: new Date().toISOString()
+        },
+        {
+          id: 'p2', user_id: '3', content: 'TikTok Video haaraa bashannansiisaa kan koo argaa! Download godhuus dandeessu.', media_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', media_type: 'video', status: 'approved', likes: ['1'], created_at: new Date(Date.now() - 3600000).toISOString()
+        }
+      ],
+      pending_posts: [
+        { id: 'p_pending_1', user_id: '4', content: 'Postii haaraa eegaa jiru (Pending approval demo)', media_url: '', media_type: 'none', status: 'pending', likes: [], created_at: new Date().toISOString() }
+      ],
+      friends: [
+        { sender_id: '3', receiver_id: '1', status: 'pending' }
+      ],
+      messages: [
+        { id: 'm1', sender_id: '3', receiver_id: '1', text: 'Akkam Kalifa, appiin kun baay\'ee namatti tola!', timestamp: new Date().toISOString() }
+      ],
+      notifications: [
+        { id: 'n1', user_id: '1', type: 'system', message: 'Baga nagaan dhuftan! Admin contact: 0920689815', created_at: new Date().toISOString() }
+      ]
+    };
+
+    // Application Global State
+    let currentUser = null;
+    let currentAuthMode = 'login';
+    let activeChatUserId = null;
+    let isLiveBroadcasting = false;
+    let activeCallSession = null;
+    let audioSynthCtx = null;
+
+    // Prevent unhandled promise rejections from broken or unsupported media sources
+    window.addEventListener('unhandledrejection', event => {
+      if (event.reason && (event.reason.name === 'NotSupportedError' || (event.reason.message && event.reason.message.includes('supported sources')))) {
+        console.warn('Prevented unhandled media promise rejection:', event.reason);
+        event.preventDefault();
+      }
+    });
+
+    function safeTogglePlay(videoEl) {
+      if (!videoEl) return;
+      if (videoEl.paused) {
+        const playPromise = videoEl.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(err => {
+            console.warn('Media playback prevented or failed:', err);
+          });
+        }
+      } else {
+        videoEl.pause();
+      }
+    }
+
+    function handleMediaError(el) {
+      if (el && el.parentNode) {
+        const fallback = document.createElement('div');
+        fallback.className = 'p-3 bg-slate-800 text-slate-300 text-xs rounded-xl my-2 text-center border border-slate-700';
+        fallback.innerHTML = '<span class="text-rose-400 font-bold">⚠️ Media Error:</span> Media source not supported or failed to load.';
+        el.parentNode.replaceChild(fallback, el);
+      }
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+      const toast = document.createElement('div');
+      const bg = type === 'error' ? 'bg-rose-600' : type === 'success' ? 'bg-emerald-600' : 'bg-slate-800';
+      toast.className = `${bg} text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-lg transition-all duration-300 transform translate-y-2 opacity-0 pointer-events-auto flex items-center gap-2 max-w-sm`;
+      toast.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toast);
+      
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    function playRingtone() {
+      try {
+        if (!audioSynthCtx) audioSynthCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let osc = audioSynthCtx.createOscillator();
+        let gain = audioSynthCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, audioSynthCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, audioSynthCtx.currentTime + 0.5);
+        gain.gain.setValueAtTime(0.2, audioSynthCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioSynthCtx.destination);
+        osc.start();
+        osc.stop(audioSynthCtx.currentTime + 0.8);
+      } catch (e) {
+        console.log("Audio synth blocked until user gesture");
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      
+      // Auto login as default user for demo convenience
+      currentUser = DB.users[0]; // Kalifa
+      updateUI();
+    });
+
+    function setAuthMode(mode) {
+      currentAuthMode = mode;
+      const isSignup = mode === 'signup';
+      document.getElementById('signupFields').classList.toggle('hidden', !isSignup);
+      document.getElementById('authTabLogin').className = !isSignup ? 'flex-1 py-2 rounded-lg bg-white shadow text-blue-600' : 'flex-1 py-2 rounded-lg text-slate-500';
+      document.getElementById('authTabSignup').className = isSignup ? 'flex-1 py-2 rounded-lg bg-white shadow text-blue-600' : 'flex-1 py-2 rounded-lg text-slate-500';
+      document.getElementById('authSubmitBtn').innerText = isSignup ? "Galmaa'i (Signup)" : "Seeni (Login)";
+    }
+
+    function quickLogin(username) {
+      const u = DB.users.find(usr => usr.username === username);
+      if (u) {
+        currentUser = u;
+        document.getElementById('authModal').classList.add('hidden');
+        updateUI();
+      }
+    }
+
+    function handleAuthSubmit(e) {
+      e.preventDefault();
+      const username = document.getElementById('authUsernameInput').value.trim();
+      const password = document.getElementById('authPasswordInput').value.trim();
+
+      if (currentAuthMode === 'login') {
+        const u = DB.users.find(usr => usr.username === username && usr.password === password);
+        if (!u) return showToast("Username yokaan Password dogoggora!", "error");
+        if (u.is_suspended && new Date(u.suspended_until) > new Date()) {
+          return showToast(`Akkaantiin kee adabameera hanga: ${new Date(u.suspended_until).toLocaleDateString()}`, "error");
+        }
+        currentUser = u;
+      } else {
+        const name = document.getElementById('regFullName').value.trim();
+        const email = document.getElementById('regEmail').value.trim();
+        const newUser = {
+          id: Date.now().toString(),
+          username,
+          full_name: name || username,
+          email: email || `${username}@mail.com`,
+          password,
+          role: 'user',
+          profile_pic: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+          bio: 'SuperApp User',
+          is_vip: false,
+          is_suspended: false,
+          suspended_until: null,
+          is_online: true
+        };
+        DB.users.push(newUser);
+        currentUser = newUser;
+      }
+
+      document.getElementById('authModal').classList.add('hidden');
+      updateUI();
+    }
+
+    function logout() {
+      currentUser = null;
+      document.getElementById('authModal').classList.remove('hidden');
+    }
+
+    function updateUI() {
+      if (!currentUser) return;
+
+      // Render Top Nav Controls
+      const navControls = document.getElementById('navControls');
+      navControls.innerHTML = `
+        <div class="flex items-center gap-2 cursor-pointer" onclick="switchTab('profile')">
+          <img src="${currentUser.profile_pic}" class="w-8 h-8 rounded-full object-cover ring-2 ring-white/50">
+          <span class="text-xs font-bold hidden sm:inline">${currentUser.full_name}</span>
+        </div>
+        <button onclick="logout()" class="p-1.5 hover:bg-blue-700 rounded-lg text-blue-100" title="Logout">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+        </button>
+      `;
+
+      // Render Left/Right Sidebar Info
+      document.getElementById('myAvatar').src = currentUser.profile_pic;
+      document.getElementById('sidebarAvatar').src = currentUser.profile_pic;
+      document.getElementById('sidebarName').innerText = currentUser.full_name;
+      document.getElementById('sidebarBio').innerText = currentUser.bio || 'Bio hin guutamne';
+      document.getElementById('sidebarVipTag').innerHTML = currentUser.is_vip 
+        ? `<span class="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">VIP Member</span>`
+        : `<span class="bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full">Free User</span>`;
+
+      // Admin Tab Button
+      const adminContainer = document.getElementById('adminTabBtnContainer');
+      if (currentUser.role === 'admin') {
+        adminContainer.innerHTML = `
+          <button onclick="switchTab('admin')" id="nav-admin" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold text-amber-600 hover:bg-amber-50 transition">
+            <div class="flex items-center gap-3">
+              <i data-lucide="shield-check" class="w-5 h-5 text-amber-600"></i> Admin Panel
+            </div>
+            <span class="bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full" id="adminPendingCount">${DB.pending_posts.length}</span>
+          </button>
+        `;
+      } else {
+        adminContainer.innerHTML = '';
+      }
+
+      // Check Suspension State
+      const suspBanner = document.getElementById('suspendedBanner');
+      if (currentUser.is_suspended) {
+        suspBanner.classList.remove('hidden');
+        document.getElementById('suspendedMessage').innerText = `Akkaantiin kee adabameera hanga: ${new Date(currentUser.suspended_until).toLocaleString()}`;
+      } else {
+        suspBanner.classList.add('hidden');
+      }
+
+      renderOnlineUsersList();
+      renderPublicPosts();
+      renderReels();
+      renderFriendRequests();
+      renderNotifications();
+      if (currentUser.role === 'admin') renderAdminModeration();
+
+      lucide.createIcons();
+    }
+
+    function renderOnlineUsersList() {
+      const container = document.getElementById('usersListContainer');
+      const chatUserList = document.getElementById('chatUserList');
+      container.innerHTML = '';
+      chatUserList.innerHTML = '';
+
+      let onlineCount = 0;
+
+      DB.users.forEach(u => {
+        if (u.id === currentUser.id) return;
+        if (u.is_online) onlineCount++;
+
+        // Left sidebar mini item
+        container.innerHTML += `
+          <div class="flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl transition cursor-pointer">
+            <div class="flex items-center gap-2.5">
+              <div class="relative">
+                <img src="${u.profile_pic}" class="w-8 h-8 rounded-full object-cover">
+                <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ${u.is_online ? 'bg-emerald-500' : 'bg-slate-300'} border-2 border-white"></span>
+              </div>
+              <div>
+                <h4 class="text-xs font-bold text-slate-800">${u.full_name}</h4>
+                <span class="text-[10px] ${u.is_online ? 'text-emerald-600' : 'text-slate-400'}">${u.is_online ? 'Online' : 'Offline'}</span>
+              </div>
+            </div>
+            <button onclick="startChatWith('${u.id}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg">
+              <i data-lucide="message-circle" class="w-4 h-4"></i>
+            </button>
+          </div>
+        `;
+
+        // Chat tab sidebar item
+        chatUserList.innerHTML += `
+          <div onclick="startChatWith('${u.id}')" class="flex items-center gap-3 p-2.5 hover:bg-slate-100 rounded-xl transition cursor-pointer ${activeChatUserId === u.id ? 'bg-blue-50 border border-blue-100' : ''}">
+            <div class="relative">
+              <img src="${u.profile_pic}" class="w-10 h-10 rounded-full object-cover">
+              <span class="absolute bottom-0 right-0 w-3 h-3 rounded-full ${u.is_online ? 'bg-emerald-500' : 'bg-slate-300'} border-2 border-white"></span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <h4 class="text-xs font-bold text-slate-800 truncate">${u.full_name}</h4>
+              <p class="text-[10px] text-slate-400 truncate">@${u.username}</p>
+            </div>
+          </div>
+        `;
+      });
+
+      document.getElementById('onlineCountTag').innerText = `${onlineCount} Online`;
+      lucide.createIcons();
+    }
+
+    function switchTab(tabId) {
+      const tabs = ['feed', 'reels', 'live', 'chat', 'notifications', 'profile', 'admin'];
+      tabs.forEach(t => {
+        const el = document.getElementById(`tab-${t}`);
+        if (el) el.classList.toggle('hidden', t !== tabId);
+        const navBtn = document.getElementById(`nav-${t}`);
+        if (navBtn) {
+          if (t === tabId) {
+            navBtn.className = "w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-blue-600 bg-blue-50 transition";
+          } else if (t !== 'admin') {
+            navBtn.className = "w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition";
+          }
+        }
+      });
+
+      if (tabId === 'profile') {
+        document.getElementById('editFullName').value = currentUser.full_name;
+        document.getElementById('editBio').value = currentUser.bio || '';
+        document.getElementById('editAvatarUrl').value = currentUser.profile_pic;
+      }
+    }
+
+    function toggleMediaInput(show) {
+      document.getElementById('mediaAttachmentBox').classList.toggle('hidden', !show);
+    }
+
+    function submitNewPost() {
+      if (currentUser.is_suspended) {
+        return showToast("Akkaantiin kee adabameera! Postii maxxansuu hin dandeessu.", "error");
+      }
+      const text = document.getElementById('postTextInput').value.trim();
+      const mediaUrl = document.getElementById('postMediaUrl').value.trim();
+      const mediaType = document.getElementById('postMediaType').value;
+
+      if (!text && !mediaUrl) return showToast("Barreeffama ykn media galchaa!", "error");
+
+      const newPostObj = {
+        id: 'p_' + Date.now(),
+        user_id: currentUser.id,
+        content: text,
+        media_url: mediaUrl,
+        media_type: mediaUrl ? mediaType : 'none',
+        status: currentUser.is_vip ? 'approved' : 'pending', // VIP posts bypass approval
+        likes: [],
+        created_at: new Date().toISOString()
+      };
+
+      if (currentUser.is_vip) {
+        DB.posts.unshift(newPostObj);
+        showToast("Postiin keessan VIP ta'uuniif kallattiidhaan baheera!", "success");
+      } else {
+        DB.pending_posts.unshift(newPostObj);
+        showToast("Postiin keessan Admin tiif mirkaneessaaf ergameera!", "success");
+      }
+
+      document.getElementById('postTextInput').value = '';
+      document.getElementById('postMediaUrl').value = '';
+      toggleMediaInput(false);
+      updateUI();
+    }
+
+    function renderPublicPosts() {
+      const container = document.getElementById('publicPostsFeed');
+      container.innerHTML = '';
+
+      if (DB.posts.length === 0) {
+        container.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs">Postiin amma jiru hin jiru.</div>`;
+        return;
+      }
+
+      DB.posts.forEach(post => {
+        const author = DB.users.find(u => u.id === post.user_id) || { full_name: 'Maammila', profile_pic: '', username: 'user', is_vip: false };
+        const isLiked = post.likes.includes(currentUser.id);
+
+        let mediaMarkup = '';
+        if (post.media_type === 'image' && post.media_url) {
+          mediaMarkup = `<img src="${post.media_url}" class="w-full max-h-[450px] object-cover rounded-xl mt-3" onerror="handleMediaError(this)">`;
+        } else if (post.media_type === 'video' && post.media_url) {
+          mediaMarkup = `
+            <div class="relative rounded-xl overflow-hidden bg-black mt-3 aspect-video">
+              <video src="${post.media_url}" class="w-full h-full object-cover" controls preload="metadata" onerror="handleMediaError(this)"></video>
+            </div>
+          `;
+        } else if (post.media_type === 'audio' && post.media_url) {
+          mediaMarkup = `<audio src="${post.media_url}" controls class="w-full mt-3" onerror="handleMediaError(this)"></audio>`;
+        }
+
+        container.innerHTML += `
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <img src="${author.profile_pic}" class="w-10 h-10 rounded-full object-cover">
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    <h4 class="font-bold text-xs text-slate-800">${author.full_name}</h4>
+                    ${author.is_vip ? '<span class="bg-amber-100 text-amber-800 text-[9px] font-black px-1.5 py-0.2 rounded-full">VIP</span>' : ''}
+                  </div>
+                  <span class="text-[10px] text-slate-400">${new Date(post.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                </div>
+              </div>
+              ${post.media_url ? `<a href="${post.media_url}" download target="_blank" class="text-xs text-blue-600 hover:underline flex items-center gap-1"><i data-lucide="download" class="w-3.5 h-3.5"></i> Download</a>` : ''}
+            </div>
+
+            <p class="text-xs text-slate-700 whitespace-pre-line">${post.content}</p>
+            ${mediaMarkup}
+
+            <div class="flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
+              <button onclick="toggleLikePost('${post.id}')" class="flex items-center gap-1.5 font-semibold ${isLiked ? 'text-rose-600' : 'hover:text-slate-700'}">
+                <i data-lucide="heart" class="w-4 h-4 ${isLiked ? 'fill-current' : ''}"></i> ${post.likes.length} Likes
+              </button>
+              <span>Share</span>
+            </div>
+          </div>
+        `;
+      });
+      lucide.createIcons();
+    }
+
+    function toggleLikePost(postId) {
+      const p = DB.posts.find(item => item.id === postId);
+      if (!p) return;
+      const idx = p.likes.indexOf(currentUser.id);
+      if (idx > -1) {
+        p.likes.splice(idx, 1);
+      } else {
+        p.likes.push(currentUser.id);
+      }
+      renderPublicPosts();
+    }
+
+    function renderReels() {
+      const container = document.getElementById('reelsFeedContainer');
+      container.innerHTML = '';
+
+      const videoPosts = DB.posts.filter(p => p.media_type === 'video');
+      if (videoPosts.length === 0) {
+        container.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs">TikTok videos hin jiran.</div>`;
+        return;
+      }
+
+      videoPosts.forEach(post => {
+        const author = DB.users.find(u => u.id === post.user_id) || { full_name: 'Creator', profile_pic: '' };
+        container.innerHTML += `
+          <div class="bg-black rounded-3xl overflow-hidden relative aspect-[9/16] shadow-xl flex flex-col justify-end p-5 text-white">
+            <video src="${post.media_url}" class="absolute inset-0 w-full h-full object-cover" autoplay loop muted playsinline onerror="handleMediaError(this)"></video>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20"></div>
+
+            <div class="relative z-10 space-y-2">
+              <div class="flex items-center gap-3">
+                <img src="${author.profile_pic}" class="w-9 h-9 rounded-full object-cover border border-white">
+                <h4 class="font-bold text-sm">${author.full_name}</h4>
+              </div>
+              <p class="text-xs text-slate-200">${post.content}</p>
+              
+              <div class="flex justify-between items-center pt-2">
+                <button onclick="toggleLikePost('${post.id}')" class="flex items-center gap-1 bg-white/20 px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-sm">
+                  <i data-lucide="heart" class="w-4 h-4 text-rose-500 fill-current"></i> ${post.likes.length}
+                </button>
+                <a href="${post.media_url}" download target="_blank" class="flex items-center gap-1 bg-white/20 px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-sm">
+                  <i data-lucide="download" class="w-4 h-4"></i> Save
+                </a>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      lucide.createIcons();
+    }
+
+    function toggleLiveBroadcast() {
+      const videoEl = document.getElementById('livePreviewVideo');
+      const placeholder = document.getElementById('livePlaceholder');
+      const badge = document.getElementById('liveBadge');
+      const btn = document.getElementById('startLiveBtn');
+
+      isLiveBroadcasting = !isLiveBroadcasting;
+
+      if (isLiveBroadcasting) {
+        badge.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        videoEl.classList.remove('hidden');
+        btn.innerHTML = `<i data-lucide="video-off" class="w-5 h-5"></i> Live Xumuri`;
+        btn.className = "bg-slate-700 hover:bg-slate-800 text-white font-bold px-6 py-2.5 rounded-xl shadow transition flex items-center gap-2";
+        showToast("Live streaming eegalameera!", "success");
+
+        navigator.mediaDevices?.getUserMedia({ video: true, audio: true })
+          .then(stream => { videoEl.srcObject = stream; })
+          .catch(err => console.log("Webcam simulated or unavailable"));
+      } else {
+        badge.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+        videoEl.classList.add('hidden');
+        btn.innerHTML = `<i data-lucide="video" class="w-5 h-5"></i> Live Eegali`;
+        btn.className = "bg-rose-600 hover:bg-rose-700 text-white font-bold px-6 py-2.5 rounded-xl shadow transition flex items-center gap-2";
+        if (videoEl.srcObject) {
+          videoEl.srcObject.getTracks().forEach(t => t.stop());
+        }
+        showToast("Live stream cufameera.", "info");
+      }
+      lucide.createIcons();
+    }
+
+    function startChatWith(userId) {
+      activeChatUserId = userId;
+      switchTab('chat');
+      const targetUser = DB.users.find(u => u.id === userId);
+      if (!targetUser) return;
+
+      document.getElementById('activeChatAvatar').innerHTML = `<img src="${targetUser.profile_pic}" class="w-full h-full rounded-full object-cover">`;
+      document.getElementById('activeChatName').innerText = targetUser.full_name;
+      document.getElementById('activeChatStatus').innerText = targetUser.is_online ? 'Online' : 'Offline';
+      document.getElementById('chatCallActions').classList.remove('hidden');
+      document.getElementById('chatInputArea').classList.remove('hidden');
+
+      renderChatMessages();
+    }
+
+    function renderChatMessages() {
+      const historyBox = document.getElementById('messagesHistory');
+      historyBox.innerHTML = '';
+
+      const thread = DB.messages.filter(m => (m.sender_id === currentUser.id && m.receiver_id === activeChatUserId) || (m.sender_id === activeChatUserId && m.receiver_id === currentUser.id));
+
+      if (thread.length === 0) {
+        historyBox.innerHTML = `<div class="text-center py-10 text-xs text-slate-400">Ergaa walii erguu eegalaa!</div>`;
+        return;
+      }
+
+      thread.forEach(msg => {
+        const isMe = msg.sender_id === currentUser.id;
+        historyBox.innerHTML += `
+          <div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-[70%] p-3 rounded-2xl text-xs ${isMe ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none'}">
+              <p>${msg.text}</p>
+              <span class="block text-[9px] ${isMe ? 'text-blue-200' : 'text-slate-400'} text-right mt-1">${new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+            </div>
+          </div>
+        `;
+      });
+      historyBox.scrollTop = historyBox.scrollHeight;
+    }
+
+    function sendDirectMessage() {
+      const input = document.getElementById('directMessageInput');
+      const text = input.value.trim();
+      if (!text || !activeChatUserId) return;
+
+      DB.messages.push({
+        id: 'm_' + Date.now(),
+        sender_id: currentUser.id,
+        receiver_id: activeChatUserId,
+        text,
+        timestamp: new Date().toISOString()
+      });
+
+      input.value = '';
+      renderChatMessages();
+    }
+
+    function triggerCall(type) {
+      if (!activeChatUserId) return;
+      const targetUser = DB.users.find(u => u.id === activeChatUserId);
+      activeCallSession = { type, targetUser, isIncoming: false };
+
+      playRingtone();
+      const modal = document.getElementById('callModal');
+      modal.classList.remove('hidden');
+      document.getElementById('callModalAvatar').src = targetUser.profile_pic;
+      document.getElementById('callModalUser').innerText = targetUser.full_name;
+      document.getElementById('callModalStatus').innerText = type === 'video' ? 'Video Call Eegaa Jira...' : 'Audio Call Eegaa Jira...';
+      document.getElementById('acceptCallBtn').classList.add('hidden');
+      document.getElementById('activeCallVideoGrid').classList.add('hidden');
+    }
+
+    function receiveIncomingCall(fromUserId, type) {
+      const targetUser = DB.users.find(u => u.id === fromUserId) || DB.users[2];
+      activeCallSession = { type, targetUser, isIncoming: true };
+
+      playRingtone();
+      const modal = document.getElementById('callModal');
+      modal.classList.remove('hidden');
+      document.getElementById('callModalAvatar').src = targetUser.profile_pic;
+      document.getElementById('callModalUser').innerText = `${targetUser.full_name} bilbilaa jira...`;
+      document.getElementById('callModalStatus').innerText = type === 'video' ? 'Incoming Video Call (Missed Call Alert if ignored)' : 'Incoming Audio Call';
+      document.getElementById('acceptCallBtn').classList.remove('hidden');
+
+      // Log notification
+      DB.notifications.unshift({
+        id: 'n_' + Date.now(),
+        user_id: currentUser.id,
+        type: 'missed_call',
+        message: `${targetUser.full_name} irraa bilbili ${type} dhufeera.`,
+        created_at: new Date().toISOString()
+      });
+      renderNotifications();
+    }
+
+    function acceptIncomingCall() {
+      document.getElementById('callModalStatus').innerText = 'Call Connected Active!';
+      document.getElementById('acceptCallBtn').classList.add('hidden');
+      if (activeCallSession && activeCallSession.type === 'video') {
+        document.getElementById('activeCallVideoGrid').classList.remove('hidden');
+        document.getElementById('callRemoteAvatar').src = activeCallSession.targetUser.profile_pic;
+        navigator.mediaDevices?.getUserMedia({ video: true, audio: true })
+          .then(stream => { document.getElementById('callLocalVideo').srcObject = stream; })
+          .catch(e => {});
+      }
+    }
+
+    function rejectOrEndCall() {
+      document.getElementById('callModal').classList.add('hidden');
+      document.getElementById('activeCallVideoGrid').classList.add('hidden');
+      activeCallSession = null;
+      showToast("Call cufameera.", "info");
+    }
+
+    function renderNotifications() {
+      const list = document.getElementById('notificationsList');
+      list.innerHTML = '';
+      const myNotifs = DB.notifications.filter(n => n.user_id === currentUser.id);
+
+      document.getElementById('notifBadge').innerText = myNotifs.length;
+
+      if (myNotifs.length === 0) {
+        list.innerHTML = `<div class="text-center py-10 text-xs text-slate-400">Beeksisa tokkooyyuu hin qabdu.</div>`;
+        return;
+      }
+
+      myNotifs.forEach(n => {
+        list.innerHTML += `
+          <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between text-xs">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                <i data-lucide="bell" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <p class="font-semibold text-slate-800">${n.message}</p>
+                <span class="text-[10px] text-slate-400">${new Date(n.created_at).toLocaleTimeString()}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      lucide.createIcons();
+    }
+
+    function renderFriendRequests() {
+      const box = document.getElementById('friendRequestsBox');
+      box.innerHTML = '';
+
+      const reqs = DB.friends.filter(f => f.receiver_id === currentUser.id && f.status === 'pending');
+      if (reqs.length === 0) {
+        box.innerHTML = `<p class="text-[11px] text-slate-400">Gaaffii hiriyaa hin qabdu.</p>`;
+        return;
+      }
+
+      reqs.forEach(r => {
+        const u = DB.users.find(usr => usr.id === r.sender_id);
+        if (!u) return;
+        box.innerHTML += `
+          <div class="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-200">
+            <div class="flex items-center gap-2">
+              <img src="${u.profile_pic}" class="w-7 h-7 rounded-full object-cover">
+              <span class="text-xs font-bold text-slate-800">${u.full_name}</span>
+            </div>
+            <div class="flex gap-1">
+              <button onclick="acceptFriend('${r.sender_id}')" class="bg-blue-600 text-white p-1 rounded-lg text-[10px]">Fudhachi</button>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function acceptFriend(senderId) {
+      const f = DB.friends.find(x => x.sender_id === senderId && x.receiver_id === currentUser.id);
+      if (f) f.status = 'accepted';
+      showToast("Hiriyaatti dabalamteetta!", "success");
+      renderFriendRequests();
+    }
+
+    function saveProfileChanges() {
+      currentUser.full_name = document.getElementById('editFullName').value.trim() || currentUser.full_name;
+      currentUser.bio = document.getElementById('editBio').value.trim();
+      currentUser.profile_pic = document.getElementById('editAvatarUrl').value.trim() || currentUser.profile_pic;
+      showToast("Profile kee milkaa'inaan jijjiirameera!", "success");
+      updateUI();
+    }
+
+    function renderAdminModeration() {
+      document.getElementById('adminPendingCount').innerText = DB.pending_posts.length;
+      document.getElementById('pendingCountBadge').innerText = `${DB.pending_posts.length} Pending`;
+
+      const container = document.getElementById('pendingPostsContainer');
+      container.innerHTML = '';
+
+      if (DB.pending_posts.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400">Postiin mirkaneessa eegaa jiru hin jiru.</p>`;
+      } else {
+        DB.pending_posts.forEach(p => {
+          const author = DB.users.find(u => u.id === p.user_id) || { full_name: 'Maammila' };
+          container.innerHTML += `
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between text-xs">
+              <div>
+                <h4 class="font-bold text-slate-800">${author.full_name}</h4>
+                <p class="text-slate-600 mt-1">${p.content}</p>
+              </div>
+              <div class="flex gap-2 shrink-0">
+                <button onclick="adminApprovePost('${p.id}')" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-bold">Approve</button>
+                <button onclick="adminRejectPost('${p.id}')" class="bg-rose-600 text-white px-3 py-1.5 rounded-lg font-bold">Reject</button>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      const usersList = document.getElementById('adminUserManagementList');
+      usersList.innerHTML = '';
+      DB.users.forEach(u => {
+        if (u.role === 'admin') return;
+        usersList.innerHTML += `
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between text-xs">
+            <div class="flex items-center gap-2">
+              <img src="${u.profile_pic}" class="w-8 h-8 rounded-full object-cover">
+              <div>
+                <h4 class="font-bold text-slate-800">${u.full_name} (@${u.username})</h4>
+                <span class="${u.is_suspended ? 'text-rose-600 font-bold' : 'text-emerald-600'}">${u.is_suspended ? 'Suspended' : 'Active'}</span>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="adminSuspendUser('${u.id}', 3)" class="bg-amber-500 text-white px-3 py-1.5 rounded-lg font-semibold">Ban 3 Days</button>
+              <button onclick="adminRestoreUser('${u.id}')" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-semibold">Restore</button>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function adminApprovePost(id) {
+      const idx = DB.pending_posts.findIndex(p => p.id === id);
+      if (idx > -1) {
+        const item = DB.pending_posts.splice(idx, 1)[0];
+        item.status = 'approved';
+        DB.posts.unshift(item);
+        showToast("Postiin mirkanaa'ee baheera!", "success");
+        updateUI();
+      }
+    }
+
+    function adminRejectPost(id) {
+      DB.pending_posts = DB.pending_posts.filter(p => p.id !== id);
+      showToast("Postiin haqameera (Rejected).", "info");
+      updateUI();
+    }
+
+    function adminSuspendUser(userId, days) {
+      const u = DB.users.find(usr => usr.id === userId);
+      if (u) {
+        u.is_suspended = true;
+        u.suspended_until = new Date(Date.now() + days * 86400000).toISOString();
+        showToast(`Maammilli ${u.full_name} guyyaa ${days}f adabameera!`, "success");
+        updateUI();
+      }
+    }
+
+    function adminRestoreUser(userId) {
+      const u = DB.users.find(usr => usr.id === userId);
+      if (u) {
+        u.is_suspended = false;
+        u.suspended_until = null;
+        showToast(`Akkaantiin ${u.full_name} deebi'ee banameera!`, "success");
+        updateUI();
+      }
+    }
+
+    function showVipModal() { document.getElementById('vipModal').classList.remove('hidden'); }
+    function closeVipModal() { document.getElementById('vipModal').classList.add('hidden'); }
+    function startVoiceRecording() { showToast("Voice recording simulation started...", "info"); }
+  </script>
+</body>
+</html>
