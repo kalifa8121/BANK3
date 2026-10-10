@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="om" class="h-full bg-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SuperApp - Neon & Node Connected</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="h-full text-slate-800 antialiased flex flex-col">
+
+  <!-- AUTH GATEWAY -->
+  <div id="authGateway" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl">
+      <h2 id="authTitle" class="text-xl font-bold text-center mb-4">SuperApp Portal</h2>
+      
+      <div class="flex bg-slate-100 p-1 rounded-xl mb-4 text-xs font-bold">
+        <button onclick="setPortal('customer')" id="btnCust" class="flex-1 py-2 rounded-lg bg-white text-blue-600 shadow">Customer</button>
+        <button onclick="setPortal('admin')" id="btnAdmin" class="flex-1 py-2 rounded-lg text-slate-500">Admin</button>
+      </div>
+
+      <form onsubmit="handleAuth(event)" class="space-y-3">
+        <div id="signupNameField" class="hidden">
+          <label class="text-xs font-bold">Maqaa Guutuu</label>
+          <input type="text" id="regName" class="w-full border p-2.5 rounded-xl text-sm">
+        </div>
+        <div>
+          <label class="text-xs font-bold">Username</label>
+          <input type="text" id="authUsername" required class="w-full border p-2.5 rounded-xl text-sm">
+        </div>
+        <div>
+          <label class="text-xs font-bold">Password</label>
+          <input type="password" id="authPassword" required class="w-full border p-2.5 rounded-xl text-sm">
+        </div>
+        <button type="submit" id="submitAuthBtn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl">Login</button>
+      </form>
+      <button onclick="toggleSignupMode()" id="toggleSignupBtn" class="w-full text-xs text-blue-600 mt-3 font-semibold">Akaakilii hin qabdu? Signup godhi</button>
+    </div>
+  </div>
+
+  <!-- MAIN APP CONTAINER -->
+  <div id="mainApp" class="flex flex-col h-screen overflow-hidden hidden">
+    <header class="bg-blue-600 text-white p-3 flex justify-between items-center shadow">
+      <h1 id="headerTitle" class="font-black text-xl">SuperApp</h1>
+      <button onclick="logout()" class="bg-rose-600 text-xs px-3 py-1.5 rounded-lg font-bold">Bahu (Logout)</button>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+      <!-- CUSTOMER FEED & POST -->
+      <main id="customerView" class="flex-1 p-5 overflow-y-auto space-y-4 max-w-2xl mx-auto hidden">
+        <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-3">
+          <textarea id="postText" rows="2" placeholder="Maal yaadaa jirta?..." class="w-full bg-slate-50 border p-3 rounded-xl text-sm"></textarea>
+          <input type="text" id="postMedia" placeholder="Media/Video URL (optional)" class="w-full border p-2 rounded-xl text-xs">
+          <button onclick="createPost()" class="bg-blue-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl">Post Ergi</button>
+        </div>
+        <div id="publicFeed" class="space-y-4"></div>
+      </main>
+
+      <!-- ADMIN PANEL -->
+      <main id="adminView" class="flex-1 p-5 overflow-y-auto space-y-4 max-w-4xl mx-auto hidden">
+        <h2 class="text-xl font-bold">Admin Pending Posts Control</h2>
+        <div id="adminPendingList" class="space-y-3"></div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "http://localhost:5000/api"; // Render irratti yeroo afran URL server keessan jijjiiraa
+    let currentPortal = 'customer';
+    let isSignupMode = false;
+    let currentUser = null;
+
+    function setPortal(portal) {
+      currentPortal = portal;
+      isSignupMode = false;
+      document.getElementById('btnCust').className = portal === 'customer' ? 'flex-1 py-2 rounded-lg bg-white text-blue-600 shadow' : 'flex-1 py-2 rounded-lg text-slate-500';
+      document.getElementById('btnAdmin').className = portal === 'admin' ? 'flex-1 py-2 rounded-lg bg-white text-amber-600 shadow' : 'flex-1 py-2 rounded-lg text-slate-500';
+      document.getElementById('signupNameField').classList.add('hidden');
+      document.getElementById('toggleSignupBtn').classList.toggle('hidden', portal === 'admin');
+    }
+
+    function toggleSignupMode() {
+      isSignupMode = !isSignupMode;
+      document.getElementById('signupNameField').classList.toggle('hidden', !isSignupMode);
+      document.getElementById('submitAuthBtn').innerText = isSignupMode ? "Signup" : "Login";
+      document.getElementById('toggleSignupBtn').innerText = isSignupMode ? "Akkaawuntii qabda? Login godhi" : "Akkaawuntii hin qabdu? Signup godhi";
+    }
+
+    async function handleAuth(e) {
+      e.preventDefault();
+      const username = document.getElementById('authUsername').value;
+      const password = document.getElementById('authPassword').value;
+      const full_name = document.getElementById('regName').value;
+
+      const endpoint = isSignupMode ? `${API_URL}/signup` : `${API_URL}/login`;
+      const body = isSignupMode ? { username, password, full_name, role: currentPortal } : { username, password };
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.success) {
+          currentUser = data.user;
+          launchApp();
+        } else {
+          alert("Dogoggora: " + data.error);
+        }
+      } catch (err) {
+        alert("Server wajjin walqunnamuun hin danda'amne: " + err.message);
+      }
+    }
+
+    function launchApp() {
+      document.getElementById('authGateway').classList.add('hidden');
+      document.getElementById('mainApp').classList.remove('hidden');
+
+      const isAdmin = currentUser.role === 'admin';
+      document.getElementById('customerView').classList.toggle('hidden', isAdmin);
+      document.getElementById('adminView').classList.toggle('hidden', !isAdmin);
+
+      if (isAdmin) {
+        document.getElementById('headerTitle').innerText = "SuperApp Admin Dashboard";
+        fetchAdminPending();
+      } else {
+        document.getElementById('headerTitle').innerText = "SuperApp Customer Feed";
+        fetchPublicFeed();
+      }
+    }
+
+    async function createPost() {
+      const content = document.getElementById('postText').value;
+      const media_url = document.getElementById('postMedia').value;
+      const res = await fetch(`${API_URL}/posts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: currentUser.id, content, media_url })
+      });
+      const data = await res.json();
+      alert(data.message);
+      document.getElementById('postText').value = '';
+      document.getElementById('postMedia').value = '';
+    }
+
+    async function fetchPublicFeed() {
+      const res = await fetch(`${API_URL}/posts/approved`);
+      const posts = await res.json();
+      const feed = document.getElementById('publicFeed');
+      feed.innerHTML = posts.map(p => `
+        <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-2">
+          <h4 class="font-bold text-xs">${p.full_name}</h4>
+          <p class="text-xs text-slate-700">${p.content}</p>
+          ${p.media_url ? `<video controls src="${p.media_url}" class="w-full max-h-60 rounded-xl object-cover"></video>` : ''}
+        </div>
+      `).join('');
+    }
+
+    async function fetchAdminPending() {
+      const res = await fetch(`${API_URL}/admin/pending`);
+      const posts = await res.json();
+      const list = document.getElementById('adminPendingList');
+      list.innerHTML = posts.map(p => `
+        <div class="bg-white p-4 rounded-2xl border flex justify-between items-center">
+          <div>
+            <span class="font-bold text-xs">${p.full_name}</span>
+            <p class="text-xs text-slate-600">${p.content}</p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="approvePost(${p.id})" class="bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-lg font-bold">Approve</button>
+            <button onclick="rejectPost(${p.id})" class="bg-rose-600 text-white text-xs px-3 py-1.5 rounded-lg font-bold">Reject</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function approvePost(id) {
+      await fetch(`${API_URL}/admin/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: id })
+      });
+      fetchAdminPending();
+    }
+
+    async function rejectPost(id) {
+      await fetch(`${API_URL}/admin/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: id })
+      });
+      fetchAdminPending();
+    }
+
+    function logout() {
+      currentUser = null;
+      document.getElementById('mainApp').classList.add('hidden');
+      document.getElementById('authGateway').classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
