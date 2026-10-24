@@ -10,7 +10,20 @@ let groupPeers = {};
 const iceServersConfig = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelay',
+      credential: 'openrelay'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelay',
+      credential: 'openrelay'
+    }
   ]
 };
 
@@ -81,7 +94,7 @@ socket.on('update-user-list', users => {
         <div>
           <button class="btn btn-primary" style="width:auto; padding:5px;" onclick="openPrivateChat('${u.username}')">Chat 💬</button>
           ${u.isOnline ? `
-            <button class="btn btn-green" style="width:auto; padding:5px;" onclick="startCall('${u.username}', false)">Voice 🎤</button>
+            <button class="btn btn-green" style="width:auto; padding:5px;" onclick="startCall('${u.username}', false)">Voice 📞</button>
             <button class="btn btn-primary" style="width:auto; padding:5px;" onclick="startCall('${u.username}', true)">Video 📹</button>
           ` : '<small>Offline</small>'}
         </div>
@@ -179,7 +192,7 @@ socket.on('private-message', data => {
   }
 });
 
-// CALL ENGINE (Mobile harka irra jiruuf kameraa fi sagalee madaqu)
+// CALL ENGINE (Mobile Data / Cellular & Video Stream Fixed)
 async function startCall(userToCall, isVideo) {
   try {
     currentStream = await navigator.mediaDevices.getUserMedia({ 
@@ -189,20 +202,36 @@ async function startCall(userToCall, isVideo) {
     
     const grid = document.getElementById('video-grid');
     if(grid) {
-      grid.innerHTML = `<video id="local-video" autoplay muted playsinline></video><video id="remote-video" autoplay playsinline></video>`;
-      document.getElementById('local-video').srcObject = currentStream;
+      grid.innerHTML = `
+        <video id="local-video" autoplay muted playsinline></video>
+        <video id="remote-video" autoplay playsinline></video>
+      `;
+      const localVid = document.getElementById('local-video');
+      if (localVid) localVid.srcObject = currentStream;
     }
     document.getElementById('call-screen').style.display = 'block';
 
     peer = new SimplePeer({ initiator: true, trickle: false, stream: currentStream, config: iceServersConfig });
+    
     peer.on('signal', signalData => {
-      socket.emit('call-user', { userToCall, signalData, callerName: currentUser.username, isVideo, ringStyle: document.getElementById('ring-style-select')?.value });
+      socket.emit('call-user', { 
+        userToCall, 
+        signalData, 
+        callerName: currentUser.username, 
+        isVideo, 
+        ringStyle: document.getElementById('ring-style-select')?.value 
+      });
     });
+
     peer.on('stream', remoteStream => {
       const remoteVideo = document.getElementById('remote-video');
       if(remoteVideo) {
         remoteVideo.srcObject = remoteStream;
-        remoteVideo.play().catch(e => console.log("Remote play error:", e));
+        remoteVideo.play().catch(e => {
+          console.log("Remote play error:", e);
+          remoteVideo.muted = true;
+          remoteVideo.play();
+        });
       }
     });
   } catch(e) { 
@@ -242,24 +271,34 @@ async function acceptCall() {
     
     const grid = document.getElementById('video-grid');
     if(grid) {
-      grid.innerHTML = `<video id="local-video" autoplay muted playsinline></video><video id="remote-video" autoplay playsinline></video>`;
-      document.getElementById('local-video').srcObject = currentStream;
+      grid.innerHTML = `
+        <video id="local-video" autoplay muted playsinline></video>
+        <video id="remote-video" autoplay playsinline></video>
+      `;
+      const localVid = document.getElementById('local-video');
+      if (localVid) localVid.srcObject = currentStream;
     }
 
     peer = new SimplePeer({ initiator: false, trickle: false, stream: currentStream, config: iceServersConfig });
 
     peer.on('signal', signal => socket.emit('accept-call', { signal, to: incomingData.from }));
+
     peer.on('stream', remoteStream => {
       const remoteVideo = document.getElementById('remote-video');
       if(remoteVideo) {
         remoteVideo.srcObject = remoteStream;
-        remoteVideo.play().catch(e => console.log("Remote play error:", e));
+        remoteVideo.play().catch(e => {
+          console.log("Remote play error:", e);
+          remoteVideo.muted = true;
+          remoteVideo.play();
+        });
       }
     });
 
     peer.signal(incomingData.signal);
   } catch(e) {
     alert("Camera/Mic eeyyama gaafata!");
+    console.error(e);
   }
 }
 
