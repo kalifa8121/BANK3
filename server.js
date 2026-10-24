@@ -32,6 +32,22 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// WebRTC ICE configuration. Add TURN_* environment variables in Render for more reliable calls.
+app.get('/api/webrtc-config', (req, res) => {
+  const iceServers = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ];
+  const turnUrls = (process.env.TURN_URLS || '').split(',').map(v => v.trim()).filter(Boolean);
+  const turnUsername = process.env.TURN_USERNAME;
+  const turnCredential = process.env.TURN_CREDENTIAL;
+  if (turnUrls.length && turnUsername && turnCredential) {
+    iceServers.push({ urls: turnUrls, username: turnUsername, credential: turnCredential });
+  }
+  res.set('Cache-Control', 'no-store');
+  res.json({ iceServers });
+});
+
 async function initDB() {
   try {
     await pool.query(`
@@ -78,7 +94,6 @@ async function initDB() {
       );
     `);
 
-    // Kolonni hundi akka jiran mirkaneessuuf
     await pool.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'user';
       ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
@@ -234,6 +249,13 @@ const activeUsers = {};
 
 io.on('connection', (socket) => {
   socket.on('register-user', async (username) => {
+    if (typeof username !== 'string') return;
+    username = username.trim().slice(0, 50);
+    if (!username) return;
+    // One active socket per username: newest login receives calls.
+    for (const [sid, info] of Object.entries(activeUsers)) {
+      if (info.username === username && sid !== socket.id) delete activeUsers[sid];
+    }
     activeUsers[socket.id] = { id: socket.id, username };
     broadcastUserList();
 
@@ -262,24 +284,51 @@ io.on('connection', (socket) => {
     } catch (err) { console.error(err); }
   }
 
-  socket.on('call-user', async (data) => {
-    const targetSocket = Object.keys(activeUsers).find(k => activeUsers[k].username === data.userToCall);
-    if (targetSocket) {
-      io.to(targetSocket).emit('incoming-call', {
-        signal: data.signalData,
-        from: socket.id,
-        callerName: data.callerName,
-        isVideo: data.isVideo,
-        ringStyle: data.ringStyle
-      });
-    } else {
-      await pool.query('INSERT INTO missed_calls (receiver, caller, call_type) VALUES ($1, $2, $3)', [data.userToCall, data.callerName, data.isVideo ? 'Video' : 'Voice']);
-      socket.emit('call-failed-offline');
+  socket.on('call-user', async (data = {}) => {
+    try {
+      const userToCall = typeof data.userToCall === 'string' ? data.userToCall.trim().slice(0, 50) : '';
+      const callerName = typeof data.callerName === 'string' ? data.callerName.trim().slice(0, 50) : '';
+      if (!userToCall || !callerName || !data.signalData) {
+        socket.emit('call-error', { message: 'Call data guutuu miti.' });
+        return;
+      }
+      const targetSocket = Object.keys(activeUsers).find(k => activeUsers[k].username === userToCall);
+      if (targetSocket) {
+        io.to(targetSocket).emit('incoming-call', {
+          signal: data.signalData,
+          from: socket.id,
+          callerName,
+          isVideo: Boolean(data.isVideo),
+          ringStyle: typeof data.ringStyle === 'string' ? data.ringStyle : 'classic'
+        });
+      } else {
+        await pool.query(
+          'INSERT INTO missed_calls (receiver, caller, call_type) VALUES ($1, $2, $3)',
+          [userToCall, callerName, data.isVideo ? 'Video' : 'Voice']
+        );
+        socket.emit('call-failed-offline');
+      }
+    } catch (err) {
+      console.error('call-user error:', err);
+      socket.emit('call-error', { message: 'Call jalqabuu hin dandeenye.' });
     }
   });
 
-  socket.on('accept-call', (data) => io.to(data.to).emit('call-accepted', data.signal));
-  socket.on('reject-call', (data) => io.to(data.to).emit('call-rejected'));
+  socket.on('accept-call', (data = {}) => {
+    if (typeof data.to === 'string' && data.signal) io.to(data.to).emit('call-accepted', data.signal);
+  });
+
+  socket.on('reject-call', (data = {}) => {
+    if (typeof data.to === 'string') io.to(data.to).emit('call-rejected');
+  });
+
+  socket.on('end-call', (data = {}) => {
+    const target = typeof data.to === 'string' ? data.to : '';
+    if (!target) return;
+    // Client may send either the remote socket id or the remote username.
+    const targetSocket = activeUsers[target] ? target : Object.keys(activeUsers).find(id => activeUsers[id].username === target);
+    if (targetSocket) io.to(targetSocket).emit('end-call', { from: socket.id });
+  });
 
   socket.on('join-group-call', () => socket.broadcast.emit('user-joined-group', socket.id));
   socket.on('group-signal', (data) => io.to(data.to).emit('group-signal', { signal: data.signal, from: socket.id }));
