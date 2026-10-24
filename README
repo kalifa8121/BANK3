@@ -1,0 +1,31 @@
+IMAANAA CALL - VOICE/VIDEO CALL UPDATE
+
+FILES
+- server.js: replaces the project's root server.js
+- package.json: replaces the project's root package.json
+- public/app.js: replaces the existing public/app.js
+
+IMPORTANT
+Keep your existing public/index.html and other existing project files. Do not delete them.
+Your public/index.html must load Socket.IO and SimplePeer before public/app.js, for example:
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
+  <script src="/app.js"></script>
+
+RENDER
+1. Upload/commit these files to the same GitHub repository.
+2. In Render, keep Build Command: npm install
+3. Keep Start Command: npm start
+4. Set DATABASE_URL to your existing Neon PostgreSQL connection string.
+5. Deploy and test with two accounts on two different phones/networks.
+
+CELLULAR DATA / WEBRTC
+The call uses the phone's browser microphone/camera and internet connection (mobile data or Wi-Fi). Camera/microphone access generally requires HTTPS, which Render provides on its public service URL.
+STUN is included by default. Some mobile carriers/NATs require a TURN server for reliable audio/video. If using a TURN provider, set these Render environment variables:
+- TURN_URLS = comma-separated TURN URLs, e.g. turn:your-turn-host:3478,turns:your-turn-host:5349
+- TURN_USERNAME = the TURN username
+- TURN_CREDENTIAL = the TURN credential/password
+Use credentials from your TURN provider; do not put private TURN credentials into public source code.
+
+This update does not itself provide free mobile data or bypass a customer's cellular data charges. Each phone needs internet access and an active data plan or Wi-Fi.
+
