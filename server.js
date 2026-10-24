@@ -1,109 +1,297 @@
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const { Pool } = require('pg');
-const cors = require('cors');
-require('dotenv').config();
+const path = require('path');
+const bcrypt = require('bcryptjs');
+const compression = require('compression');
 
 const app = express();
-app.use(express.json());
-app.use(cors());
+const server = http.createServer(app);
 
-// Neon PostgreSQL Connection Pool
+const io = new Server(server, { 
+  maxHttpBufferSize: 1e9,
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  transports: ['websocket', 'polling']
+});
+
+const PORT = process.env.PORT || 10000;
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// 1. SIGNUP API (Customer Portal)
-app.post('/api/signup', async (req, res) => {
-  const { username, full_name, email, password, role } = req.body;
+app.use(compression());
+app.use(express.json({ limit: '1000mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1000mb' }));
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+async function initDB() {
   try {
-    const result = await pool.query(
-      'INSERT INTO users (username, full_name, email, password, role) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, full_name, role, profile_pic',
-      [username, full_name, email, password, role || 'customer']
-    );
-    res.json({ success: true, user: result.rows[0] });
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        phone VARCHAR(20),
+        bio TEXT,
+        avatar TEXT,
+        role VARCHAR(20) DEFAULT 'user',
+        is_admin BOOLEAN DEFAULT FALSE,
+        is_vip BOOLEAN DEFAULT FALSE,
+        banned_until TIMESTAMP DEFAULT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS posts (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(50),
+        content TEXT,
+        media_url TEXT,
+        media_type VARCHAR(20),
+        likes INT DEFAULT 0,
+        approved BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS missed_calls (
+        id SERIAL PRIMARY KEY,
+        receiver VARCHAR(50),
+        caller VARCHAR(50),
+        call_type VARCHAR(20),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS private_messages (
+        id SERIAL PRIMARY KEY,
+        sender VARCHAR(50),
+        receiver VARCHAR(50),
+        message TEXT,
+        media_url TEXT,
+        media_type VARCHAR(20),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await pool.query(`
+      UPDATE users SET is_admin = TRUE, role = 'admin' WHERE username = 'admin';
+    `);
+
+    console.log("Database initialized successfully.");
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("DB Initialization Error:", err);
+    process.exit(1);
+  }
+}
+
+async function startServer() {
+  await initDB();
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+startServer();
+
+app.post('/api/auth/signup', async (req, res) => {
+  const { username, password, phone, bio } = req.body;
+  try {
+    if (!username || !password) return res.status(400).json({ success: false, message: "Maqaa fi password guutuun dirqama!" });
+    const checkUser = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+    if (checkUser.rows.length > 0) return res.status(400).json({ success: false, message: "Maqaan kun duraan qabameera!" });
+    
+    const userCount = await pool.query('SELECT COUNT(*) FROM users');
+    const isAdmin = parseInt(userCount.rows[0].count) === 0;
+    const role = isAdmin ? 'admin' : 'user';
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const userRes = await pool.query(
+      'INSERT INTO users (username, password, phone, bio, role, is_admin) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, username, is_admin, is_vip, role',
+      [username, hashedPassword, phone || '', bio || '', role, isAdmin]
+    );
+    res.json({ success: true, user: userRes.rows[0] });
+  } catch (err) {
+    res.status(400).json({ success: false, message: "Galmaa'uun hin danda'amne: " + err.message });
   }
 });
 
-// 2. LOGIN API (Customer & Admin)
-app.post('/api/login', async (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
   try {
-    const result = await pool.query('SELECT * FROM users WHERE username = $1 AND password = $2', [username, password]);
-    if (result.rows.length === 0) {
-      return res.status(401).json({ success: false, error: "Username ykn Password dogoggora!" });
+    const userRes = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    if (userRes.rows.length === 0) return res.status(400).json({ success: false, message: "Maqaan akkasii hin jiru!" });
+
+    const user = userRes.rows[0];
+    if (user.banned_until && new Date(user.banned_until) > new Date()) {
+      return res.status(403).json({ success: false, message: `Account'n keessan hanga ${user.banned_until}tti ban ta'eera!` });
     }
-    res.json({ success: true, user: result.rows[0] });
+
+    const validPass = await bcrypt.compare(password, user.password);
+    if (!validPass) return res.status(400).json({ success: false, message: "Password dogoggora!" });
+
+    delete user.password;
+    res.json({ success: true, user });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, message: "Server Error" });
   }
 });
 
-// 3. POST SUBMISSION (Customer pending queue)
-app.post('/api/posts', async (req, res) => {
-  const { user_id, content, media_url } = req.body;
+app.get('/api/posts', async (req, res) => {
   try {
-    await pool.query(
-      'INSERT INTO posts (user_id, content, media_url, status) VALUES ($1, $2, $3, $4)',
-      [user_id, content, media_url, 'pending']
-    );
-    res.json({ success: true, message: "Postiin keessan ergameera! Admin erga mirkaneessee booda ni darba." });
+    const posts = await pool.query('SELECT * FROM posts WHERE approved = TRUE ORDER BY id DESC LIMIT 20');
+    res.json(posts.rows);
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false });
   }
 });
 
-// 4. GET APPROVED PUBLIC POSTS
-app.get('/api/posts/approved', async (req, res) => {
+app.get('/api/admin/pending-posts', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT posts.*, users.full_name, users.profile_pic 
-      FROM posts JOIN users ON posts.user_id = users.id 
-      WHERE posts.status = 'approved' ORDER BY posts.id DESC
-    `);
-    res.json(result.rows);
+    const posts = await pool.query('SELECT * FROM posts ORDER BY id DESC');
+    res.json(posts.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false });
   }
 });
 
-// 5. ADMIN: GET PENDING POSTS
-app.get('/api/admin/pending', async (req, res) => {
+app.post('/api/admin/approve-post', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT posts.*, users.full_name 
-      FROM posts JOIN users ON posts.user_id = users.id 
-      WHERE posts.status = 'pending'
-    `);
-    res.json(result.rows);
+    await pool.query('UPDATE posts SET approved = TRUE WHERE id = $1', [req.body.postId]);
+    res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false });
   }
 });
 
-// 6. ADMIN: APPROVE POST
-app.post('/api/admin/approve', async (req, res) => {
-  const { post_id } = req.body;
+app.post('/api/admin/delete-post', async (req, res) => {
   try {
-    await pool.query("UPDATE posts SET status = 'approved' WHERE id = $1", [post_id]);
-    res.json({ success: true, message: "Postiin mirkanaa'eera!" });
+    await pool.query('DELETE FROM posts WHERE id = $1', [req.body.postId]);
+    res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false });
   }
 });
 
-// 7. ADMIN: REJECT POST
-app.post('/api/admin/reject', async (req, res) => {
-  const { post_id } = req.body;
+app.get('/api/admin/users', async (req, res) => {
   try {
-    await pool.query("DELETE FROM posts WHERE id = $1", [post_id]);
-    res.json({ success: true, message: "Postiin haqameera!" });
+    const users = await pool.query('SELECT username, role, is_admin, banned_until FROM users');
+    res.json(users.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false });
   }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.post('/api/admin/ban-user', async (req, res) => {
+  try {
+    const { username, days } = req.body;
+    const banUntil = new Date();
+    banUntil.setDate(banUntil.getDate() + parseInt(days));
+    await pool.query('UPDATE users SET banned_until = $1 WHERE username = $2', [banUntil, username]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false });
+  }
+});
+
+app.post('/api/admin/unban-user', async (req, res) => {
+  try {
+    const { username } = req.body;
+    await pool.query('UPDATE users SET banned_until = NULL WHERE username = $1', [username]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false });
+  }
+});
+
+app.post('/api/admin/make-admin', async (req, res) => {
+  try {
+    const { username } = req.body;
+    await pool.query('UPDATE users SET is_admin = TRUE, role = \'admin\' WHERE username = $1', [username]);
+    res.json({ success: true, message: `@${username} amma Admin ta'eera!` });
+  } catch (err) {
+    res.status(500).json({ success: false });
+  }
+});
+
+const activeUsers = {};
+
+io.on('connection', (socket) => {
+  socket.on('register-user', async (username) => {
+    activeUsers[socket.id] = { id: socket.id, username };
+    broadcastUserList();
+
+    try {
+      const missed = await pool.query('SELECT * FROM missed_calls WHERE receiver = $1 ORDER BY id DESC', [username]);
+      if (missed.rows.length > 0) {
+        socket.emit('missed-calls-notification', missed.rows);
+        await pool.query('DELETE FROM missed_calls WHERE receiver = $1', [username]);
+      }
+    } catch(e) { console.error(e); }
+  });
+
+  async function broadcastUserList() {
+    try {
+      const allUsersRes = await pool.query('SELECT username, avatar, is_vip FROM users');
+      const onlineUsernames = Object.values(activeUsers).map(u => u.username);
+
+      const userList = allUsersRes.rows.map(u => ({
+        username: u.username,
+        avatar: u.avatar,
+        is_vip: u.is_vip,
+        isOnline: onlineUsernames.includes(u.username)
+      }));
+
+      io.emit('update-user-list', userList);
+    } catch (err) { console.error(err); }
+  }
+
+  socket.on('call-user', async (data) => {
+    const targetSocket = Object.keys(activeUsers).find(k => activeUsers[k].username === data.userToCall);
+    if (targetSocket) {
+      io.to(targetSocket).emit('incoming-call', {
+        signal: data.signalData,
+        from: socket.id,
+        callerName: data.callerName,
+        isVideo: data.isVideo,
+        ringStyle: data.ringStyle
+      });
+    } else {
+      await pool.query('INSERT INTO missed_calls (receiver, caller, call_type) VALUES ($1, $2, $3)', [data.userToCall, data.callerName, data.isVideo ? 'Video' : 'Voice']);
+      socket.emit('call-failed-offline');
+    }
+  });
+
+  socket.on('accept-call', (data) => io.to(data.to).emit('call-accepted', data.signal));
+  socket.on('reject-call', (data) => io.to(data.to).emit('call-rejected'));
+
+  socket.on('join-group-call', () => socket.broadcast.emit('user-joined-group', socket.id));
+  socket.on('group-signal', (data) => io.to(data.to).emit('group-signal', { signal: data.signal, from: socket.id }));
+  socket.on('leave-group-call', () => socket.broadcast.emit('user-left-group', socket.id));
+
+  socket.on('group-chat-message', (data) => io.emit('group-chat-message', data));
+  socket.on('private-message', async (data) => {
+    const targetSocket = Object.keys(activeUsers).find(k => activeUsers[k].username === data.receiver);
+    if (targetSocket) io.to(targetSocket).emit('private-message', data);
+  });
+
+  socket.on('create-post', async (data) => {
+    try {
+      const res = await pool.query(
+        'INSERT INTO posts (username, content, media_url, media_type, approved) VALUES ($1, $2, $3, $4, FALSE) RETURNING *',
+        [data.username, data.content, data.mediaUrl || null, data.mediaType || null]
+      );
+      socket.emit('post-submitted-silent', res.rows[0]);
+    } catch (err) { console.error(err); }
+  });
+
+  socket.on('disconnect', () => {
+    delete activeUsers[socket.id];
+    broadcastUserList();
+    socket.broadcast.emit('user-left-group', socket.id);
+  });
+});
