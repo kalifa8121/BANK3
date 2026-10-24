@@ -1,7 +1,7 @@
 {
   "name": "imaanaacall2",
   "version": "1.0.0",
-  "description": "Voice and Video Call App",
+  "description": "Imaanaa Call app with Socket.IO signaling and WebRTC voice/video calls",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -12,5 +12,8 @@
     "express": "^4.18.2",
     "pg": "^8.11.3",
     "socket.io": "^4.7.2"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
